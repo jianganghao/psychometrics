@@ -118,21 +118,22 @@ def compute_item_information(theta, difficulty, discrimination=1, guessing=0):
     return item_info
 
 # -------------------------------------------------
-# Marginal Reliability Calculation Using Gauss–Legendre Quadrature
+# Marginal Reliability Calculation Using Gaussian Quadrature
 # -------------------------------------------------
 def marginal_reliability_quad(difficulties, discriminations, guesses, lower=-3, upper=3, n_nodes=64):
     """
     Compute marginal reliability via Gauss–Legendre quadrature.
-    Marginal reliability is defined as the weighted average of the conditional reliability 
-    $r(\theta)=I(\theta)/(I(\theta)+1)$, where the weights are given by the standard normal density.
+    Conditional reliability is:
+    
+    $$ r(\theta)=\frac{I(\theta)}{I(\theta)+1}, $$
+    
+    and marginal reliability is the weighted average of $r(\theta)$ using the standard normal density.
     """
     nodes, weights = np.polynomial.legendre.leggauss(n_nodes)
     theta_nodes = 0.5 * (upper - lower) * nodes + 0.5 * (upper + lower)
     weights = 0.5 * (upper - lower) * weights
-    # Compute test information at each quadrature node
     I_nodes = test_information(theta_nodes, difficulties, discriminations, guesses)
     r_theta = I_nodes / (I_nodes + 1)
-    # Standard normal density at theta_nodes
     f_theta = norm.pdf(theta_nodes)
     marginal_r = np.sum(weights * r_theta * f_theta) / np.sum(weights * f_theta)
     return marginal_r
@@ -186,7 +187,7 @@ with st.expander("Click here to see the Math"):
     
     where $L(\theta)=\exp\{\ell(\theta)\}$.
 
-    #### Gaussian Quadrature
+    #### Gaussian Quadrature for Numerical Integration
 
     $$
     \int_a^b f(\theta)\,d\theta \approx \sum_{j=1}^N w_j\, f(\theta_j).
@@ -198,8 +199,8 @@ with st.expander("Click here to see the Math"):
     I(\theta)=\sum_{i=1}^n I_i(\theta),
     $$
     
-    where
-    
+    where the item information for item $i$ is
+
     $$
     I_i(\theta)=\frac{\left[(1-c_i)a_iL(\theta-\delta_i)(1-L(\theta-\delta_i))\right]^2}{p_i(\theta)(1-p_i(\theta))},
     $$
@@ -224,43 +225,17 @@ with st.expander("Click here to see the Math"):
     r(\theta)=\frac{I(\theta)}{I(\theta)+1}.
     $$
     
-    Marginal reliability is computed as the weighted average of $r(\theta)$, using the standard normal density as weights.
+    Marginal reliability is computed as the weighted average of $r(\theta)$ using the standard normal density:
+    
+    $$
+    \text{Marginal Reliability} = \frac{\int_{-3}^{3} r(\theta)\,\phi(\theta)\,d\theta}{\int_{-3}^{3} \phi(\theta)\,d\theta},
+    $$
+    
+    where $\phi(\theta)$ is the standard normal density.
 
     #### Item Characteristic Curve (ICC)
 
     The ICC for item $i$ is the function $p_i(\theta)$.
-
-    #### Summary
-
-    - **1PL Model:**
-      $$
-      p_i(\theta)=\frac{\exp(\theta-\delta_i)}{1+\exp(\theta-\delta_i)}.
-      $$
-      
-    - **2PL Model:**
-      $$
-      p_i(\theta)=\frac{\exp\{a_i(\theta-\delta_i)\}}{1+\exp\{a_i(\theta-\delta_i)\}}.
-      $$
-      
-    - **3PL Model:**
-      $$
-      p_i(\theta)=c_i+(1-c_i)\frac{\exp\{a_i(\theta-\delta_i)\}}{1+\exp\{a_i(\theta-\delta_i)\}}.
-      $$
-      
-    - **Log-Likelihood:**
-      $$
-      \ell(\theta)=\sum_{i=1}^n \left[x_i\ln(p_i(\theta))+(1-x_i)\ln(1-p_i(\theta))\right].
-      $$
-      
-    - **EAP Estimate:**
-      $$
-      \hat{\theta}_{EAP}=\frac{\int \theta\, L(\theta)\,\pi(\theta)\,d\theta}{\int L(\theta)\,\pi(\theta)\,d\theta}.
-      $$
-      
-    - **Gaussian Quadrature:**
-      $$
-      \int_a^b f(\theta)\,d\theta\approx \sum_{j=1}^N w_j\, f(\theta_j).
-      $$
     """)
     
 st.markdown('---------')
@@ -341,7 +316,7 @@ info_df = pd.DataFrame({
     "Test Information": test_info_vals
 })
 
-# Calculate marginal reliability using Gauss–Legendre quadrature (64 nodes)
+# Calculate marginal reliability using Gaussian quadrature (64 nodes)
 def marginal_reliability_quad(difficulties, discriminations, guesses, lower=-3, upper=3, n_nodes=64):
     nodes, weights = np.polynomial.legendre.leggauss(n_nodes)
     theta_nodes = 0.5 * (upper - lower) * nodes + 0.5 * (upper + lower)
@@ -388,7 +363,7 @@ st.markdown("### Deep Dive into Items")
 selected_item = st.selectbox("Select an Item for ICC & IIC Plots", options=[f"Item {i+1}" for i in range(n_items)])
 selected_index = int(selected_item.split(" ")[1]) - 1
 
-# Display the parameters for the selected item
+# Display selected item parameters
 selected_params = {
     "Difficulty": difficulties[selected_index],
     "Discrimination": discriminations[selected_index] if discriminations is not None else 1,
