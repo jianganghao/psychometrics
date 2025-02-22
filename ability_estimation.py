@@ -285,7 +285,7 @@ n_items = st.slider("Number of Items", min_value=1, max_value=300, value=30, ste
 # -------------------------------------------------
 # Parameter Error Settings
 # -------------------------------------------------
-st.markdown("### Parameter Error Settings")
+st.markdown("##### Setting Parameter Estimation Error level")
 difficulty_error_level = st.slider("Difficulty Error Level (std dev)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
 if model_type in ["2PL", "3PL"]:
     discrimination_error_level = st.slider("Discrimination Error Level (std dev)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
@@ -323,14 +323,6 @@ if model_type == "3PL":
 else:
     guesses = None
 
-# st.write("Base Difficulty Parameters:", base_difficulties)
-# st.write("Final Difficulty Parameters (with error):", difficulties)
-# if model_type in ["2PL", "3PL"]:
-#     st.write("Base Discrimination Parameters:", base_discriminations)
-#     st.write("Final Discrimination Parameters (with error):", discriminations)
-# if model_type == "3PL":
-#     st.write("Base Guessing Parameters:", base_guessing)
-#     st.write("Final Guessing Parameters (with error):", guesses)
 
 theta_true_values = np.arange(-3, 3.01, 0.25)
 estimated_thetas = []
