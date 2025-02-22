@@ -299,10 +299,9 @@ if model_type == "3PL":
 
 with st.expander("Show the data"):
     st.write("##### Estimation Results")
-    st.dataframe(results_df)
-
+    st.dataframe(results_df,use_container_width=True)
     st.write("##### Item Parameters")
-    st.dataframe(items_df)
+    st.dataframe(items_df,use_container_width=True)
 
 # -------------------------------------------------
 # Test Information Function Calculation
