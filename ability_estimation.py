@@ -252,12 +252,16 @@ n_items = st.slider("Number of Items", min_value=1, max_value=300, value=30, ste
 # -------------------------------------------------
 np.random.seed(42)
 difficulties = np.random.normal(0, 1, n_items)
+st.markdown('#### Simulation Parameters')
+st.write('Difficulty Parameter: $N(0,1)$')
 if model_type in ["2PL", "3PL"]:
     discriminations = np.random.uniform(0.8, 1.2, n_items)
+    st.write('Discrimination Parameter: $Uniform(0.8, 1.2)$')
 else:
     discriminations = None
 if model_type == "3PL":
     guesses = np.random.uniform(0.1, 0.25, n_items)
+    st.write('Guessing Parameter: $Uniform(0.1, 0.25)$')
 else:
     guesses = None
 
