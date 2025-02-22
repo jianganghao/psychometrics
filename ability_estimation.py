@@ -338,14 +338,14 @@ standard_errors = []
 
 for true_theta in theta_true_values:
     if model_type == "1PL":
-        p = np.exp(true_theta - difficulties) / (1 + np.exp(true_theta - difficulties))
+        p = np.exp(true_theta - base_difficulties) / (1 + np.exp(true_theta - base_difficulties))
     elif model_type == "2PL":
-        exp_term = np.exp(discriminations * (true_theta - difficulties))
+        exp_term = np.exp(base_discriminations * (true_theta - base_difficulties))
         p = exp_term / (1 + exp_term)
     elif model_type == "3PL":
-        exp_term = np.exp(discriminations * (true_theta - difficulties))
+        exp_term = np.exp(base_discriminations * (true_theta - base_difficulties))
         logistic = exp_term / (1 + exp_term)
-        p = guesses + (1 - guesses) * logistic
+        p = base_guessing + (1 - base_guessing) * logistic
 
     responses = np.random.binomial(1, p)
     theta_eap, se_eap, theta_nodes, posterior = eap_estimate_uniform_prior_quad(
