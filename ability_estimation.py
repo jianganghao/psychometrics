@@ -146,7 +146,7 @@ def marginal_reliability_quad(difficulties, discriminations, guesses, lower=-3, 
 # -------------------------------------------------
 st.title("Estimating Person Ability in IRT - A Quick Tour")
 
-st.write('This demo estimates person ability parameters (assuming known item parameters) using EAP with a uniform prior (θ ~ [-3,3]) under different IRT models. The app also shows the Test Information Function, marginal reliability, the Item Characteristic Curve (ICC), and the Item Information Curve (IIC) for a selected item.')
+st.write('This demo estimates person ability parameters (assuming known item parameters) using EAP with a uniform prior (θ ~ [-3,3]) under different IRT models. The app also shows the Test Information Function, marginal reliability, the Item Characteristic Curve (ICC), and the Item Information Curve (IIC) for a selected item. For questions, please contact: <jianganghao@gmail.com>')
 
 with st.expander("Click here to see the Math"):
     st.markdown(r"""
