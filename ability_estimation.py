@@ -132,7 +132,7 @@ def compute_item_information(theta, difficulty, discrimination=1, guessing=0):
 # -------------------------------------------------
 st.title("Estimating Person Ability in IRT - A Quick Tour")
 
-st.write('This is a quick demo of estimating person ability parameters (assuming item parameters are known in the EM step) using EAP of different priors under different IRT models. For questions, please contact: Jiangang Hao <jianganghao@gmail.com>')
+st.write('This is a quick demo of estimating person ability parameters (assuming item parameters are known in the EM step) using EAP of different priors under different IRT models. The app was created with the help of GPT-o3-mini. For questions, please contact: <jianganghao@gmail.com>')
 
 with st.expander("Click here to see the Math"):
     st.markdown(r"""
