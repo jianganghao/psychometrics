@@ -323,14 +323,14 @@ if model_type == "3PL":
 else:
     guesses = None
 
-st.write("Base Difficulty Parameters:", base_difficulties)
-st.write("Final Difficulty Parameters (with error):", difficulties)
-if model_type in ["2PL", "3PL"]:
-    st.write("Base Discrimination Parameters:", base_discriminations)
-    st.write("Final Discrimination Parameters (with error):", discriminations)
-if model_type == "3PL":
-    st.write("Base Guessing Parameters:", base_guessing)
-    st.write("Final Guessing Parameters (with error):", guesses)
+# st.write("Base Difficulty Parameters:", base_difficulties)
+# st.write("Final Difficulty Parameters (with error):", difficulties)
+# if model_type in ["2PL", "3PL"]:
+#     st.write("Base Discrimination Parameters:", base_discriminations)
+#     st.write("Final Discrimination Parameters (with error):", discriminations)
+# if model_type == "3PL":
+#     st.write("Base Guessing Parameters:", base_guessing)
+#     st.write("Final Guessing Parameters (with error):", guesses)
 
 theta_true_values = np.arange(-3, 3.01, 0.25)
 estimated_thetas = []
