@@ -363,13 +363,10 @@ if model_type == "3PL":
     items_df["Guessing"] = guesses
 
 with st.expander("Show the data"):
-    cols = st.columns(2)
-    with cols[0]:
-        st.write("### Estimation Results")
-        st.dataframe(results_df, use_container_width=True)
-    with cols[1]:
-        st.write("### Item Parameters")
-        st.dataframe(items_df, use_container_width=True)
+    st.write("##### Estimation Results")
+    st.dataframe(results_df, use_container_width=True)
+    st.write("##### Item Parameters")
+    st.dataframe(items_df, use_container_width=True)
 
 # -------------------------------------------------
 # Test Information Function Calculation
