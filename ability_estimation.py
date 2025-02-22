@@ -285,14 +285,14 @@ n_items = st.slider("Number of Items", min_value=1, max_value=300, value=30, ste
 # -------------------------------------------------
 # Parameter Error Settings
 # -------------------------------------------------
-st.markdown("##### Setting Parameter Estimation Error level")
-difficulty_error_level = st.slider("Difficulty Error Level (std dev)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
+#st.markdown("##### Setting Parameter Estimation Error level")
+difficulty_error_level = st.slider("Difficulty Parameter Error Level (std dev)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
 if model_type in ["2PL", "3PL"]:
-    discrimination_error_level = st.slider("Discrimination Error Level (std dev)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
+    discrimination_error_level = st.slider("Discrimination Parameter Error Level (std dev)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
 else:
     discrimination_error_level = 0.0
 if model_type == "3PL":
-    guessing_error_level = st.slider("Guessing Error Level (std dev)", min_value=0.0, max_value=0.5, value=0.0, step=0.05)
+    guessing_error_level = st.slider("Guessing Parameter Error Level (std dev)", min_value=0.0, max_value=0.5, value=0.0, step=0.05)
 else:
     guessing_error_level = 0.0
 
