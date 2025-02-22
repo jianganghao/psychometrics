@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 from scipy.stats import norm
 import plotly.io as pio
-pio.templates.default = "ggplot2"
+pio.templates.default = "seaborn"
 
 # -------------------------------------------------
 # General IRT Log-Likelihood Function
