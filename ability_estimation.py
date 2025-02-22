@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.express as px
+from scipy.stats import norm
 
 # -------------------------------------------------
 # General IRT Log-Likelihood Function
@@ -23,12 +24,9 @@ def irt_log_likelihood(theta, responses, difficulties, discriminations=None, gue
     else:
         guesses = np.array(guesses)
     
-    # Compute the logistic function: exp(a*(theta-d))/(1+exp(a*(theta-d)))
     exp_term = np.exp(discriminations * (theta - difficulties))
     logistic = exp_term / (1 + exp_term)
-    # For 3PL: probability p = c + (1-c)*logistic
     p = guesses + (1 - guesses) * logistic
-    # Avoid log(0)
     eps = 1e-10
     p = np.clip(p, eps, 1 - eps)
     log_like = np.sum(responses * np.log(p) + (1 - responses) * np.log(1 - p))
@@ -43,29 +41,21 @@ def eap_estimate_uniform_prior_quad(responses, difficulties, discriminations=Non
     Estimate theta using the Expected A Posteriori (EAP) method with a uniform prior on [lower, upper]
     via Gauss–Legendre quadrature.
     """
-    # Obtain Gauss–Legendre nodes and weights on [-1, 1]
     nodes, weights = np.polynomial.legendre.leggauss(n_nodes)
-    # Transform nodes to [lower, upper]
     theta_nodes = 0.5 * (upper - lower) * nodes + 0.5 * (upper + lower)
     weights = 0.5 * (upper - lower) * weights
 
-    # Evaluate the log-likelihood at each node
     log_likelihood = np.array([
         irt_log_likelihood(theta, responses, difficulties, discriminations, guesses)
         for theta in theta_nodes
     ])
     likelihood = np.exp(log_likelihood)
-    
-    # With a uniform prior, the unnormalized posterior equals the likelihood.
     posterior_unnorm = likelihood
-    
-    # Compute the denominator and numerator of the posterior mean
     denom = np.sum(weights * posterior_unnorm)
     numer = np.sum(weights * theta_nodes * posterior_unnorm)
     theta_eap = numer / denom
     variance = np.sum(weights * (theta_nodes - theta_eap)**2 * posterior_unnorm) / denom
     se_eap = np.sqrt(variance)
-    
     return theta_eap, se_eap, theta_nodes, posterior_unnorm
 
 # -------------------------------------------------
@@ -76,15 +66,15 @@ def test_information(thetas, difficulties, discriminations=None, guesses=None):
     Computes the test information function as the sum of item information over items.
     For each item, the item information is given by:
     
-    $$ I_i(\\theta)=\\frac{\\left[(1-c_i)a_iL(\\theta-\\delta_i)(1-L(\\theta-\\delta_i))\\right]^2}{p_i(\\theta)(1-p_i(\\theta))}, $$
+    $$ I_i(\theta)=\frac{\left[(1-c_i)a_iL(\theta-\delta_i)(1-L(\theta-\delta_i))\right]^2}{p_i(\theta)(1-p_i(\theta))}, $$
     
     where
     
-    $$ L(\\theta-\\delta_i)=\\frac{\\exp\\{a_i(\\theta-\\delta_i)\\}}{1+\\exp\\{a_i(\\theta-\\delta_i)\\}}, $$
+    $$ L(\theta-\delta_i)=\frac{\exp\{a_i(\theta-\delta_i)\}}{1+\exp\{a_i(\theta-\delta_i)\}}, $$
     
     and
     
-    $$ p_i(\\theta)=c_i+(1-c_i)L(\\theta-\\delta_i). $$
+    $$ p_i(\theta)=c_i+(1-c_i)L(\theta-\delta_i). $$
     """
     difficulties = np.array(difficulties)
     if discriminations is None:
@@ -128,11 +118,31 @@ def compute_item_information(theta, difficulty, discrimination=1, guessing=0):
     return item_info
 
 # -------------------------------------------------
+# Marginal Reliability Calculation Using Gauss–Legendre Quadrature
+# -------------------------------------------------
+def marginal_reliability_quad(difficulties, discriminations, guesses, lower=-3, upper=3, n_nodes=64):
+    """
+    Compute marginal reliability via Gauss–Legendre quadrature.
+    Marginal reliability is defined as the weighted average of the conditional reliability 
+    $r(\theta)=I(\theta)/(I(\theta)+1)$, where the weights are given by the standard normal density.
+    """
+    nodes, weights = np.polynomial.legendre.leggauss(n_nodes)
+    theta_nodes = 0.5 * (upper - lower) * nodes + 0.5 * (upper + lower)
+    weights = 0.5 * (upper - lower) * weights
+    # Compute test information at each quadrature node
+    I_nodes = test_information(theta_nodes, difficulties, discriminations, guesses)
+    r_theta = I_nodes / (I_nodes + 1)
+    # Standard normal density at theta_nodes
+    f_theta = norm.pdf(theta_nodes)
+    marginal_r = np.sum(weights * r_theta * f_theta) / np.sum(weights * f_theta)
+    return marginal_r
+
+# -------------------------------------------------
 # Streamlit App Interface
 # -------------------------------------------------
 st.title("Estimating Person Ability in IRT - A Quick Tour")
 
-st.write('This is a quick demo of estimating person ability parameters (assuming item parameters are known in the EM step) using EAP with uniform prior of theta ~ [-3,3] under different IRT models. The app was created with the help of GPT-o3-mini. For questions, please contact: <jianganghao@gmail.com>')
+st.write('This demo estimates person ability parameters (assuming known item parameters) using EAP with a uniform prior (θ ~ [-3,3]) under different IRT models. The app also shows the Test Information Function, marginal reliability, the Item Characteristic Curve (ICC), and the Item Information Curve (IIC) for a selected item.')
 
 with st.expander("Click here to see the Math"):
     st.markdown(r"""
@@ -143,103 +153,82 @@ with st.expander("Click here to see the Math"):
     - **1PL Model (Rasch Model):**
 
       $$
-      p_i(\theta) = \frac{\exp(\theta - \delta_i)}{1 + \exp(\theta - \delta_i)},
+      p_i(\theta) = \frac{\exp(\theta-\delta_i)}{1+\exp(\theta-\delta_i)}.
       $$
-
-      where $\delta_i$ is the difficulty parameter for item $i$. Here, the discrimination is implicitly set to 1 and the guessing parameter is 0.
+      
+      Here, discrimination is 1 and guessing is 0.
 
     - **2PL Model:**
 
       $$
-      p_i(\theta) = \frac{\exp\{a_i(\theta - \delta_i)\}}{1 + \exp\{a_i(\theta - \delta_i)\}},
+      p_i(\theta) = \frac{\exp\{a_i(\theta-\delta_i)\}}{1+\exp\{a_i(\theta-\delta_i)\}}.
       $$
-
-      where $a_i$ is the discrimination parameter for item $i$. The guessing parameter is assumed to be 0.
+      
+      The guessing parameter is assumed to be 0.
 
     - **3PL Model:**
 
       $$
-      p_i(\theta) = c_i + (1-c_i)\frac{\exp\{a_i(\theta - \delta_i)\}}{1+\exp\{a_i(\theta - \delta_i)\}},
+      p_i(\theta) = c_i+(1-c_i)\frac{\exp\{a_i(\theta-\delta_i)\}}{1+\exp\{a_i(\theta-\delta_i)\}}.
       $$
-
-      where $c_i$ is the guessing parameter, $a_i$ is the discrimination parameter, and $\delta_i$ is the difficulty parameter for item $i$.
 
     #### Log-Likelihood
 
-    Given a response vector $\mathbf{x} = (x_1, x_2, \dots, x_n)$ with $x_i \in \{0,1\}$, the log-likelihood is defined as:
-
     $$
-    \ell(\theta) = \sum_{i=1}^n \left[ x_i \ln\left(p_i(\theta)\right) + (1-x_i) \ln\left(1-p_i(\theta)\right) \right].
+    \ell(\theta) = \sum_{i=1}^n \left[ x_i\ln(p_i(\theta)) + (1-x_i)\ln(1-p_i(\theta)) \right].
     $$
 
     #### Expected A Posteriori (EAP) Estimation
 
-    In a Bayesian framework, we combine the likelihood with a prior $\pi(\theta)$ to obtain the posterior density:
+    $$
+    \hat{\theta}_{EAP} = \frac{\int \theta \, L(\theta)\,\pi(\theta)\,d\theta}{\int L(\theta)\,\pi(\theta)\,d\theta},
+    $$
+    
+    where $L(\theta)=\exp\{\ell(\theta)\}$.
+
+    #### Gaussian Quadrature
 
     $$
-    p(\theta \mid \mathbf{x}) \propto L(\theta)\, \pi(\theta),
+    \int_a^b f(\theta)\,d\theta \approx \sum_{j=1}^N w_j\, f(\theta_j).
     $$
-
-    where $L(\theta)=\exp\{\ell(\theta)\}$. The EAP estimate is the posterior mean:
-
-    $$
-    \hat{\theta}_{EAP} = \frac{\int \theta \, L(\theta)\, \pi(\theta)\, d\theta}{\int L(\theta)\, \pi(\theta)\, d\theta}.
-    $$
-
-    The posterior variance is given by:
-
-    $$
-    \operatorname{Var}(\theta \mid \mathbf{x}) = \frac{\int (\theta-\hat{\theta}_{EAP})^2 \, L(\theta)\, \pi(\theta)\, d\theta}{\int L(\theta)\, \pi(\theta)\, d\theta},
-    $$
-
-    and the standard error is the square root of this variance.
-
-    Different priors can be used:
-    - **Uniform Prior:** $\pi(\theta)$ is constant over an interval (e.g., $\theta\in[-3,3]$).
-    - **Standard Normal Prior:** 
-      $$
-      \pi(\theta)=\frac{1}{\sqrt{2\pi}}\exp\left(-\frac{\theta^2}{2}\right).
-      $$
-
-    #### Gaussian Quadrature for Numerical Integration
-
-    Gaussian quadrature approximates an integral over an interval $[a,b]$ as a weighted sum:
-
-    $$
-    \int_a^b f(\theta)\, d\theta \approx \sum_{j=1}^N w_j\, f(\theta_j),
-    $$
-
-    where $\{\theta_j\}$ are the quadrature nodes and $\{w_j\}$ are the corresponding weights.
 
     #### Test Information Function
-
-    The test information function, which reflects the precision of the test at a given ability level, is given by the sum of the item information functions:
 
     $$
     I(\theta)=\sum_{i=1}^n I_i(\theta),
     $$
-
-    where the item information for item $i$ is
-
+    
+    where
+    
     $$
     I_i(\theta)=\frac{\left[(1-c_i)a_iL(\theta-\delta_i)(1-L(\theta-\delta_i))\right]^2}{p_i(\theta)(1-p_i(\theta))},
     $$
-
+    
     with
-
+    
     $$
     L(\theta-\delta_i)=\frac{\exp\{a_i(\theta-\delta_i)\}}{1+\exp\{a_i(\theta-\delta_i)\}},
     $$
-
+    
     and
-
+    
     $$
     p_i(\theta)=c_i+(1-c_i)L(\theta-\delta_i).
     $$
 
+    #### Marginal Reliability
+
+    Conditional reliability is defined as:
+    
+    $$
+    r(\theta)=\frac{I(\theta)}{I(\theta)+1}.
+    $$
+    
+    Marginal reliability is computed as the weighted average of $r(\theta)$, using the standard normal density as weights.
+
     #### Item Characteristic Curve (ICC)
 
-    The ICC for item $i$ is the function $p_i(\theta)$, which describes the probability of a correct response as a function of $\theta$.
+    The ICC for item $i$ is the function $p_i(\theta)$.
 
     #### Summary
 
@@ -260,27 +249,26 @@ with st.expander("Click here to see the Math"):
       
     - **Log-Likelihood:**
       $$
-      \ell(\theta)=\sum_{i=1}^n \left[x_i\ln\left(p_i(\theta)\right)+(1-x_i)\ln\left(1-p_i(\theta)\right)\right].
+      \ell(\theta)=\sum_{i=1}^n \left[x_i\ln(p_i(\theta))+(1-x_i)\ln(1-p_i(\theta))\right].
       $$
       
     - **EAP Estimate:**
       $$
-      \hat{\theta}_{EAP}=\frac{\int \theta\, L(\theta)\,\pi(\theta)\, d\theta}{\int L(\theta)\,\pi(\theta)\, d\theta}.
+      \hat{\theta}_{EAP}=\frac{\int \theta\, L(\theta)\,\pi(\theta)\,d\theta}{\int L(\theta)\,\pi(\theta)\,d\theta}.
       $$
       
     - **Gaussian Quadrature:**
       $$
-      \int_a^b f(\theta)\, d\theta\approx \sum_{j=1}^N w_j\, f(\theta_j).
+      \int_a^b f(\theta)\,d\theta\approx \sum_{j=1}^N w_j\, f(\theta_j).
       $$
     """)
     
 st.markdown('---------')
 
 # -------------------------------------------------
-# Main Controls (No Sidebar, in Main Area)
+# Main Controls (No Sidebar)
 # -------------------------------------------------
 st.markdown("### Simulation Controls")
-# Horizontal radio buttons for IRT model selection
 model_type = st.radio("Select IRT Model", options=["1PL", "2PL", "3PL"], horizontal=True)
 n_items = st.slider("Number of Items", min_value=1, max_value=300, value=30, step=1)
 
@@ -288,24 +276,17 @@ n_items = st.slider("Number of Items", min_value=1, max_value=300, value=30, ste
 # Data Simulation and EAP Estimation
 # -------------------------------------------------
 np.random.seed(42)
-# Simulate item difficulties from N(0,1)
 difficulties = np.random.normal(0, 1, n_items)
-
-# For 2PL and 3PL, generate discrimination parameters.
 if model_type in ["2PL", "3PL"]:
     discriminations = np.random.uniform(0.8, 1.2, n_items)
 else:
     discriminations = None
-
-# For 3PL, generate guessing parameters.
 if model_type == "3PL":
     guesses = np.random.uniform(0.1, 0.25, n_items)
 else:
     guesses = None
 
-# Define true theta values from -3 to 3 with an increment of 0.25.
 theta_true_values = np.arange(-3, 3.01, 0.25)
-
 estimated_thetas = []
 standard_errors = []
 
@@ -332,8 +313,6 @@ results_df = pd.DataFrame({
     "Estimated Theta": estimated_thetas,
     "Standard Error": standard_errors
 })
-
-# Create an item parameters DataFrame
 items_df = pd.DataFrame({
     "Item": [f"Item {i+1}" for i in range(n_items)],
     "Difficulty": difficulties
@@ -362,12 +341,25 @@ info_df = pd.DataFrame({
     "Test Information": test_info_vals
 })
 
-# -------------------------------------------------
-# Plots: EAP Estimation and Test Information in a Single Column
-# -------------------------------------------------
-st.markdown("### Simulation Plots")
+# Calculate marginal reliability using Gauss–Legendre quadrature (64 nodes)
+def marginal_reliability_quad(difficulties, discriminations, guesses, lower=-3, upper=3, n_nodes=64):
+    nodes, weights = np.polynomial.legendre.leggauss(n_nodes)
+    theta_nodes = 0.5 * (upper - lower) * nodes + 0.5 * (upper + lower)
+    weights = 0.5 * (upper - lower) * weights
+    I_nodes = test_information(theta_nodes, difficulties, discriminations, guesses)
+    r_theta = I_nodes / (I_nodes + 1)
+    f_theta = norm.pdf(theta_nodes)
+    marginal_r = np.sum(weights * r_theta * f_theta) / np.sum(weights * f_theta)
+    return marginal_r
 
+marginal_r = marginal_reliability_quad(difficulties, discriminations, guesses, lower=-3, upper=3, n_nodes=64)
+
+st.markdown("### Simulation Plots")
+st.markdown(f"**Marginal Reliability:** {marginal_r:.3f}")
+
+# -------------------------------------------------
 # Plot 1: Estimated Theta vs. True Theta
+# -------------------------------------------------
 fig1 = px.scatter(results_df, x="True Theta", y="Estimated Theta", error_y="Standard Error",
                   title=f"EAP Estimation for {model_type} Model",
                   labels={"True Theta": "True Theta", "Estimated Theta": "Estimated Theta"})
@@ -380,7 +372,9 @@ fig1.update_xaxes(showgrid=True, gridcolor="rgba(0,100,0,0.5)", griddash="dash")
 fig1.update_yaxes(showgrid=True, gridcolor="rgba(0,100,0,0.5)", griddash="dash")
 st.plotly_chart(fig1)
 
+# -------------------------------------------------
 # Plot 2: Test Information Function
+# -------------------------------------------------
 fig2 = px.line(info_df, x="Theta", y="Test Information", title="Test Information Function",
                labels={"Theta": "Theta", "Test Information": "Test Information"})
 fig2.update_xaxes(showgrid=True, gridcolor="rgba(0,100,0,0.5)", griddash="dash")
@@ -388,28 +382,23 @@ fig2.update_yaxes(showgrid=True, gridcolor="rgba(0,100,0,0.5)", griddash="dash")
 st.plotly_chart(fig2)
 
 # -------------------------------------------------
-# Deep dive into items
+# Deep Dive into Items: ICC & IIC
 # -------------------------------------------------
 st.markdown("### Deep Dive into Items")
-selected_item = st.selectbox("Select an Item for ICC Plot", options=[f"Item {i+1}" for i in range(n_items)])
+selected_item = st.selectbox("Select an Item for ICC & IIC Plots", options=[f"Item {i+1}" for i in range(n_items)])
 selected_index = int(selected_item.split(" ")[1]) - 1
-# -------------------------------------------------
-# Display Selected Item Parameters
-# -------------------------------------------------
 
-# Gather parameters for the selected item
+# Display the parameters for the selected item
 selected_params = {
     "Difficulty": difficulties[selected_index],
     "Discrimination": discriminations[selected_index] if discriminations is not None else 1,
     "Guessing": guesses[selected_index] if guesses is not None else 0
 }
 selected_params_df = pd.DataFrame(selected_params, index=[selected_item])
+st.markdown("#### Selected Item Parameters")
 st.table(selected_params_df)
 
-# -------------------------------------------------
-# ICC (Item Characteristic Curve) and Item Information
-# -------------------------------------------------
-
+# ICC Plot
 theta_icc = np.arange(-3, 3.1, 0.1)
 icc_values = compute_icc(theta_icc, difficulties[selected_index],
                          discrimination=(discriminations[selected_index] if discriminations is not None else 1),
@@ -424,10 +413,7 @@ fig3.update_xaxes(showgrid=True, gridcolor="rgba(0,100,0,0.5)", griddash="dash")
 fig3.update_yaxes(showgrid=True, gridcolor="rgba(0,100,0,0.5)", griddash="dash")
 st.plotly_chart(fig3)
 
-# -------------------------------------------------
-# Item Information Curve (IIC) for the Selected Item
-# -------------------------------------------------
-
+# IIC Plot
 theta_iic = np.arange(-3, 3.1, 0.1)
 item_info_vals = [compute_item_information(theta, 
                                              difficulties[selected_index],
@@ -443,5 +429,3 @@ fig4 = px.line(iic_df, x="Theta", y="Item Information", title=f"Item Information
 fig4.update_xaxes(showgrid=True, gridcolor="rgba(0,100,0,0.5)", griddash="dash")
 fig4.update_yaxes(showgrid=True, gridcolor="rgba(0,100,0,0.5)", griddash="dash")
 st.plotly_chart(fig4)
-
-
