@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 from scipy.stats import norm
+from scipy.optimize import minimize
 import plotly.io as pio
 pio.templates.default = "plotly_white"
 
@@ -33,6 +34,43 @@ def irt_log_likelihood(theta, responses, difficulties, discriminations=None, gue
     p = np.clip(p, eps, 1 - eps)
     log_like = np.sum(responses * np.log(p) + (1 - responses) * np.log(1 - p))
     return log_like
+
+
+# -------------------------------------------------
+# MLE estimation
+# -------------------------------------------------
+
+def mle_estimate(responses, difficulties, discriminations=None, guesses=None, theta_init=0.0):
+    """
+    Estimate theta using Maximum Likelihood Estimation (MLE) by minimizing the negative log-likelihood.
+    
+    Parameters:
+        responses: array-like, binary responses for each item.
+        difficulties: array-like, item difficulty parameters.
+        discriminations: array-like or None, item discrimination parameters.
+                         For 1PL, these default to 1.
+        guesses: array-like or None, item guessing parameters.
+                 For 1PL/2PL, these default to 0.
+        theta_init: float, initial guess for theta.
+    
+    Returns:
+        theta_mle: the MLE estimate of theta.
+        se_mle: the estimated standard error at theta_mle (based on the inverse Hessian).
+    """
+    # Define the negative log-likelihood function
+    def neg_log_likelihood(theta):
+        return -irt_log_likelihood(theta, responses, difficulties, discriminations, guesses)
+    
+    # Optimize using BFGS (which gives an approximation to the Hessian inverse)
+    result = minimize(neg_log_likelihood, x0=np.array([theta_init]), method='BFGS')
+    theta_mle = result.x[0]
+    
+    # For BFGS, result.hess_inv is provided (as an array or matrix)
+    try:
+        se_mle = np.sqrt(result.hess_inv[0, 0])
+    except (IndexError, TypeError):
+        se_mle = np.nan  # if not available
+    return theta_mle, se_mle
 
 # -------------------------------------------------
 # EAP Estimation Using Gauss–Legendre Quadrature (Uniform Prior)
@@ -298,6 +336,8 @@ if model_type == "3PL":
 else:
     guessing_error_level = 0.0
 
+estimation_method = st.radio("Choose Estimation Method: ", options=['EAP','MLE'],horizontal=True)
+
 # -------------------------------------------------
 # Data Simulation and EAP Estimation
 # -------------------------------------------------
@@ -342,9 +382,14 @@ for true_theta in theta_true_values:
         p = base_guessing + (1 - base_guessing) * logistic
 
     responses = np.random.binomial(1, p)
-    theta_eap, se_eap, theta_nodes, posterior = eap_estimate_uniform_prior_quad(
-        responses, difficulties, discriminations=discriminations, guesses=guesses
-    )
+    if estimation_method == "EAP":
+        theta_eap, se_eap, theta_nodes, posterior = eap_estimate_uniform_prior_quad(
+            responses, difficulties, discriminations=discriminations, guesses=guesses
+        )
+    if estimation_method == "MLE":
+        theta_eap, se_eap = mle_estimate(
+            responses, difficulties, discriminations=discriminations, guesses=guesses
+        )
     estimated_thetas.append(theta_eap)
     standard_errors.append(se_eap)
 
