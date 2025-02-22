@@ -64,6 +64,7 @@ def eap_estimate_uniform_prior_quad(responses, difficulties, discriminations=Non
 def test_information(thetas, difficulties, discriminations=None, guesses=None):
     """
     Computes the test information function as the sum of item information over items.
+    For each item, the item information is given by:
     
     $$ I_i(\theta)=\frac{\left[(1-c_i)a_iL(\theta-\delta_i)(1-L(\theta-\delta_i))\right]^2}{p_i(\theta)(1-p_i(\theta))}, $$
     
@@ -126,11 +127,7 @@ def marginal_reliability_quad(difficulties, discriminations, guesses, lower=-3, 
     
     $$ r(\theta)=\frac{I(\theta)}{I(\theta)+1}, $$
     
-    and marginal reliability is computed as:
-    
-    $$ \text{Marginal Reliability} = \frac{\int_{-3}^{3} r(\theta)\,\phi(\theta)\,d\theta}{\int_{-3}^{3} \phi(\theta)\,d\theta}, $$
-    
-    where $\phi(\theta)$ is the standard normal density.
+    and marginal reliability is the weighted average of $r(\theta)$ using the standard normal density.
     """
     nodes, weights = np.polynomial.legendre.leggauss(n_nodes)
     theta_nodes = 0.5 * (upper - lower) * nodes + 0.5 * (upper + lower)
@@ -202,8 +199,8 @@ with st.expander("Click here to see the Math"):
     I(\theta)=\sum_{i=1}^n I_i(\theta),
     $$
     
-    where
-    
+    where the item information for item $i$ is
+
     $$
     I_i(\theta)=\frac{\left[(1-c_i)a_iL(\theta-\delta_i)(1-L(\theta-\delta_i))\right]^2}{p_i(\theta)(1-p_i(\theta))},
     $$
@@ -239,38 +236,6 @@ with st.expander("Click here to see the Math"):
     #### Item Characteristic Curve (ICC)
 
     The ICC for item $i$ is the function $p_i(\theta)$.
-
-    #### Summary
-
-    - **1PL Model:**
-      $$
-      p_i(\theta)=\frac{\exp(\theta-\delta_i)}{1+\exp(\theta-\delta_i)}.
-      $$
-      
-    - **2PL Model:**
-      $$
-      p_i(\theta)=\frac{\exp\{a_i(\theta-\delta_i)\}}{1+\exp\{a_i(\theta-\delta_i)\}}.
-      $$
-      
-    - **3PL Model:**
-      $$
-      p_i(\theta)=c_i+(1-c_i)\frac{\exp\{a_i(\theta-\delta_i)\}}{1+\exp\{a_i(\theta-\delta_i)\}}.
-      $$
-      
-    - **Log-Likelihood:**
-      $$
-      \ell(\theta)=\sum_{i=1}^n \left[x_i\ln(p_i(\theta))+(1-x_i)\ln(1-p_i(\theta))\right].
-      $$
-      
-    - **EAP Estimate:**
-      $$
-      \hat{\theta}_{EAP}=\frac{\int \theta\, L(\theta)\,\pi(\theta)\,d\theta}{\int L(\theta)\,\pi(\theta)\,d\theta}.
-      $$
-      
-    - **Gaussian Quadrature:**
-      $$
-      \int_a^b f(\theta)\,d\theta\approx \sum_{j=1}^N w_j\, f(\theta_j).
-      $$
     """)
     
 st.markdown('---------')
@@ -283,54 +248,22 @@ model_type = st.radio("Select IRT Model", options=["1PL", "2PL", "3PL"], horizon
 n_items = st.slider("Number of Items", min_value=1, max_value=300, value=30, step=1)
 
 # -------------------------------------------------
-# Parameter Error Settings
-# -------------------------------------------------
-st.markdown("### Parameter Error Settings")
-difficulty_error_level = st.slider("Difficulty Error Level (std dev)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
-if model_type in ["2PL", "3PL"]:
-    discrimination_error_level = st.slider("Discrimination Error Level (std dev)", min_value=0.0, max_value=1.0, value=0.0, step=0.05)
-else:
-    discrimination_error_level = 0.0
-if model_type == "3PL":
-    guessing_error_level = st.slider("Guessing Error Level (std dev)", min_value=0.0, max_value=0.5, value=0.0, step=0.05)
-else:
-    guessing_error_level = 0.0
-
-# -------------------------------------------------
 # Data Simulation and EAP Estimation
 # -------------------------------------------------
 np.random.seed(42)
-# Generate base item difficulties from N(0,1)
-base_difficulties = np.random.normal(0, 1, n_items)
-# Add Gaussian error to difficulties based on selected error level
-difficulties = base_difficulties + np.random.normal(0, difficulty_error_level, n_items)
-
-# For 2PL and 3PL: generate base discrimination parameters from Uniform(0.8, 1.2)
+difficulties = np.random.normal(0, 1, n_items)
+#st.markdown('###### Simulation Parameters')
+st.write('Difficulty Parameter: Normal(0, 1, n_items)')
 if model_type in ["2PL", "3PL"]:
-    base_discriminations = np.random.uniform(0.8, 1.2, n_items)
-    # Add Gaussian error to discrimination
-    discriminations = base_discriminations + np.random.normal(0, discrimination_error_level, n_items)
+    discriminations = np.random.uniform(0.8, 1.2, n_items)
+    st.write('Discrimination Parameter: Uniform(0.8, 1.2, n_items)')
 else:
     discriminations = None
-
-# For 3PL: generate base guessing parameters from Uniform(0.1, 0.25)
 if model_type == "3PL":
-    base_guessing = np.random.uniform(0.1, 0.25, n_items)
-    # Add Gaussian error to guessing
-    guesses = base_guessing + np.random.normal(0, guessing_error_level, n_items)
-    # Ensure guessing is between 0 and 1
-    guesses = np.clip(guesses, 0, 1)
+    guesses = np.random.uniform(0.1, 0.25, n_items)
+    st.write('Guessing Parameter: Uniform(0.1, 0.25, n_items)')
 else:
     guesses = None
-
-st.write("Base Difficulty Parameters:", base_difficulties)
-st.write("Final Difficulty Parameters (with error):", difficulties)
-if model_type in ["2PL", "3PL"]:
-    st.write("Base Discrimination Parameters:", base_discriminations)
-    st.write("Final Discrimination Parameters (with error):", discriminations)
-if model_type == "3PL":
-    st.write("Base Guessing Parameters:", base_guessing)
-    st.write("Final Guessing Parameters (with error):", guesses)
 
 theta_true_values = np.arange(-3, 3.01, 0.25)
 estimated_thetas = []
@@ -369,13 +302,10 @@ if model_type == "3PL":
     items_df["Guessing"] = guesses
 
 with st.expander("Show the data"):
-    cols = st.columns(2)
-    with cols[0]:
-        st.write("### Estimation Results")
-        st.dataframe(results_df, use_container_width=True)
-    with cols[1]:
-        st.write("### Item Parameters")
-        st.dataframe(items_df, use_container_width=True)
+    st.write("##### Estimation Results")
+    st.dataframe(results_df,use_container_width=True)
+    st.write("##### Item Parameters")
+    st.dataframe(items_df,use_container_width=True)
 
 # -------------------------------------------------
 # Test Information Function Calculation
@@ -388,6 +318,16 @@ info_df = pd.DataFrame({
 })
 
 # Calculate marginal reliability using Gaussian quadrature (64 nodes)
+def marginal_reliability_quad(difficulties, discriminations, guesses, lower=-3, upper=3, n_nodes=64):
+    nodes, weights = np.polynomial.legendre.leggauss(n_nodes)
+    theta_nodes = 0.5 * (upper - lower) * nodes + 0.5 * (upper + lower)
+    weights = 0.5 * (upper - lower) * weights
+    I_nodes = test_information(theta_nodes, difficulties, discriminations, guesses)
+    r_theta = I_nodes / (I_nodes + 1)
+    f_theta = norm.pdf(theta_nodes)
+    marginal_r = np.sum(weights * r_theta * f_theta) / np.sum(weights * f_theta)
+    return marginal_r
+
 marginal_r = marginal_reliability_quad(difficulties, discriminations, guesses, lower=-3, upper=3, n_nodes=64)
 
 st.markdown("### Simulation Plots")
