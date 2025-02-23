@@ -40,7 +40,7 @@ def irt_log_likelihood(theta, responses, difficulties, discriminations=None, gue
 # MLE estimation
 # -------------------------------------------------
 
-def mle_estimate(responses, difficulties, discriminations=None, guesses=None, theta_init=0.0):
+def mle_estimate_unbound(responses, difficulties, discriminations=None, guesses=None, theta_init=0.0):
     """
     Estimate theta using Maximum Likelihood Estimation (MLE) by minimizing the negative log-likelihood.
     
@@ -62,7 +62,7 @@ def mle_estimate(responses, difficulties, discriminations=None, guesses=None, th
         return -irt_log_likelihood(theta, responses, difficulties, discriminations, guesses)
     
     # Optimize using BFGS (which gives an approximation to the Hessian inverse)
-    result = minimize(neg_log_likelihood, x0=np.array([theta_init]), method="L-BFGS-B", bounds=[(-3,3)])
+    result = minimize(neg_log_likelihood, x0=np.array([theta_init]), method="BFGS")
     theta_mle = result.x[0]
     
     # For BFGS, result.hess_inv is provided (as an array or matrix)
@@ -71,6 +71,49 @@ def mle_estimate(responses, difficulties, discriminations=None, guesses=None, th
     except (IndexError, TypeError):
         se_mle = np.nan  # if not available
     return theta_mle, se_mle
+
+
+def mle_estimate_bound(responses, difficulties, discriminations=None, guesses=None, theta_init=0.0):
+    """
+    Estimate theta using Maximum Likelihood Estimation (MLE) by minimizing the negative log-likelihood,
+    subject to bounds on theta. The standard error is computed using a numerical approximation of 
+    the second derivative of the log-likelihood.
+
+    Parameters:
+        responses: array-like, binary responses for each item.
+        difficulties: array-like, item difficulty parameters.
+        discriminations: array-like or None, item discrimination parameters.
+                         For 1PL, these default to 1.
+        guesses: array-like or None, item guessing parameters.
+                 For 1PL/2PL, these default to 0.
+        theta_init: float, initial guess for theta.
+
+    Returns:
+        theta_mle: the MLE estimate of theta.
+        se_mle: the estimated standard error at theta_mle.
+    """
+    # Define the negative log-likelihood function
+    def neg_log_likelihood(theta):
+        return -irt_log_likelihood(theta, responses, difficulties, discriminations, guesses)
+    
+    # Use L-BFGS-B with bounds for theta in [-3, 3]
+    bounds = [(-3, 3)]
+    result = minimize(neg_log_likelihood, x0=np.array([theta_init]), method="L-BFGS-B", bounds=bounds)
+    theta_mle = result.x[0]
+    
+    # Compute the numerical second derivative of the negative log-likelihood at theta_mle
+    h = 1e-5
+    f = neg_log_likelihood
+    second_deriv = (f(theta_mle + h) - 2 * f(theta_mle) + f(theta_mle - h)) / (h ** 2)
+    
+    # The observed information is -second_deriv (should be >0 at a maximum)
+    if second_deriv < 0:
+        se_mle = 1 / np.sqrt(-second_deriv)
+    else:
+        se_mle = np.nan  # If the curvature is not negative, SE cannot be computed reliably.
+    
+    return theta_mle, se_mle
+
 
 # -------------------------------------------------
 # EAP Estimation Using Gauss–Legendre Quadrature (Uniform Prior)
@@ -336,7 +379,7 @@ if model_type == "3PL":
 else:
     guessing_error_level = 0.0
 
-estimation_method = st.radio("Choose Estimation Method: ", options=['EAP','MLE'],horizontal=True)
+estimation_method = st.radio("Choose Estimation Method: ", options=['EAP','MLE_unbound','MLE_bound'],horizontal=True)
 
 # -------------------------------------------------
 # Data Simulation and EAP Estimation
@@ -386,10 +429,17 @@ for true_theta in theta_true_values:
         theta_eap, se_eap, theta_nodes, posterior = eap_estimate_uniform_prior_quad(
             responses, difficulties, discriminations=discriminations, guesses=guesses
         )
-    if estimation_method == "MLE":
-        theta_eap, se_eap = mle_estimate(
+    if estimation_method == "MLE_unbound":
+        theta_eap, se_eap = mle_estimate_unbound(
             responses, difficulties, discriminations=discriminations, guesses=guesses
         )
+    
+    if estimation_method == "MLE_bound":
+        theta_eap, se_eap = mle_estimate_bound(
+            responses, difficulties, discriminations=discriminations, guesses=guesses
+        )
+
+    
     estimated_thetas.append(theta_eap)
     standard_errors.append(se_eap)
 
