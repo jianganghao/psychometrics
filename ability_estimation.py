@@ -77,8 +77,8 @@ def mle_estimate_bound(responses, difficulties, discriminations=None, guesses=No
     """
     Estimate theta using Maximum Likelihood Estimation (MLE) by minimizing the negative log-likelihood,
     subject to bounds on theta. The standard error is computed using a numerical approximation of 
-    the second derivative of the log-likelihood.
-
+    the second derivative (curvature) of the negative log-likelihood.
+    
     Parameters:
         responses: array-like, binary responses for each item.
         difficulties: array-like, item difficulty parameters.
@@ -87,7 +87,7 @@ def mle_estimate_bound(responses, difficulties, discriminations=None, guesses=No
         guesses: array-like or None, item guessing parameters.
                  For 1PL/2PL, these default to 0.
         theta_init: float, initial guess for theta.
-
+    
     Returns:
         theta_mle: the MLE estimate of theta.
         se_mle: the estimated standard error at theta_mle.
@@ -101,17 +101,16 @@ def mle_estimate_bound(responses, difficulties, discriminations=None, guesses=No
     result = minimize(neg_log_likelihood, x0=np.array([theta_init]), method="L-BFGS-B", bounds=bounds)
     theta_mle = result.x[0]
     
-    # Compute the numerical second derivative of the negative log-likelihood at theta_mle
+    # Compute the numerical second derivative (Hessian) of the negative log-likelihood at theta_mle
     h = 1e-5
     f = neg_log_likelihood
     second_deriv = (f(theta_mle + h) - 2 * f(theta_mle) + f(theta_mle - h)) / (h ** 2)
     
-    # The observed information is -second_deriv (should be >0 at a maximum)
-    if second_deriv < 0:
-        se_mle = 1 / np.sqrt(-second_deriv)
+    # Since we minimize the negative log-likelihood, second_deriv should be positive.
+    if second_deriv > 0:
+        se_mle = 1 / np.sqrt(second_deriv)
     else:
-        se_mle = np.nan  # If the curvature is not negative, SE cannot be computed reliably.
-    
+        se_mle = np.nan
     return theta_mle, se_mle
 
 
