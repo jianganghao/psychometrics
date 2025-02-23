@@ -62,7 +62,7 @@ def mle_estimate(responses, difficulties, discriminations=None, guesses=None, th
         return -irt_log_likelihood(theta, responses, difficulties, discriminations, guesses)
     
     # Optimize using BFGS (which gives an approximation to the Hessian inverse)
-    result = minimize(neg_log_likelihood, x0=np.array([theta_init]), method='BFGS')
+    result = minimize(neg_log_likelihood, x0=np.array([theta_init]), method="L-BFGS-B", bounds=[(-3,3)])
     theta_mle = result.x[0]
     
     # For BFGS, result.hess_inv is provided (as an array or matrix)
